@@ -11,17 +11,28 @@ import (
 func TestNew(t *testing.T) {
 	tests := []struct {
 		desc    string
-		regexps []string
+		// regexps []string
+		elements []Element
 		expErr  bool
 	}{
 		{
 			desc:    "should return no error",
-			regexps: []string{`^/foo/(.*)`},
+			elements: []Element{
+				Element{
+					Regex: `^/foo/(.*)`,
+					Response: http.StatusForbidden,
+				},
+			},
 			expErr:  false,
 		},
 		{
 			desc:    "should return an error",
-			regexps: []string{"*"},
+			elements: []Element{
+				Element{
+					Regex: `*`,
+					Response: http.StatusForbidden,
+				},
+			},
 			expErr:  true,
 		},
 	}
@@ -29,7 +40,7 @@ func TestNew(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
 			cfg := &Config{
-				Regex: test.regexps,
+				Elements: test.elements,
 			}
 
 			if _, err := New(context.Background(), nil, cfg, "name"); test.expErr && err == nil {
@@ -42,31 +53,75 @@ func TestNew(t *testing.T) {
 func TestServeHTTP(t *testing.T) {
 	tests := []struct {
 		desc          string
-		regexps       []string
+		// regexps       []string
+		elements      []Element
 		reqPath       string
 		expNextCall   bool
 		expStatusCode int
 	}{
 		{
 			desc:          "should return forbidden status",
-			regexps:       []string{"/test"},
+			elements: []Element{
+				Element{
+					Regex: `/test`,
+					Response: http.StatusForbidden,
+				},
+			},
+			// regexps:       []string{"/test"},
 			reqPath:       "/test",
 			expNextCall:   false,
 			expStatusCode: http.StatusForbidden,
 		},
 		{
 			desc:          "should return forbidden status",
-			regexps:       []string{"/test", "/toto"},
+			elements: []Element{
+				Element{
+					Regex: `/test`,
+					Response: http.StatusForbidden,
+				},
+				Element{
+					Regex: `/toto`,
+					Response: http.StatusForbidden,
+				},
+			},
+			// regexps:       []string{"/test", "/toto"},
 			reqPath:       "/toto",
 			expNextCall:   false,
 			expStatusCode: http.StatusForbidden,
 		},
 		{
 			desc:          "should return ok status",
-			regexps:       []string{"/test", "/toto"},
+			elements: []Element{
+				Element{
+					Regex: `/test`,
+					Response: http.StatusForbidden,
+				},
+				Element{
+					Regex: `/toto`,
+					Response: http.StatusForbidden,
+				},
+			},
+			// regexps:       []string{"/test", "/toto"},
 			reqPath:       "/plop",
 			expNextCall:   true,
 			expStatusCode: http.StatusOK,
+		},
+		{
+			desc:          "should return not found status",
+			elements: []Element{
+				Element{
+					Regex: `/test`,
+					Response: http.StatusNotFound,
+				},
+				Element{
+					Regex: `/toto`,
+					Response: http.StatusNotFound,
+				},
+			},
+			// regexps:       []string{"/test", "/toto"},
+			reqPath:       "/test",
+			expNextCall:   false,
+			expStatusCode: http.StatusNotFound,
 		},
 		{
 			desc:          "should return ok status",
@@ -76,14 +131,26 @@ func TestServeHTTP(t *testing.T) {
 		},
 		{
 			desc:          "should return forbidden status",
-			regexps:       []string{`^/bar(.*)`},
+			elements: []Element{
+				Element{
+					Regex: `^/bar(.*)`,
+					Response: http.StatusForbidden,
+				},
+			},
+			// regexps:       []string{`^/bar(.*)`},
 			reqPath:       "/bar/foo",
 			expNextCall:   false,
 			expStatusCode: http.StatusForbidden,
 		},
 		{
 			desc:          "should return forbidden status",
-			regexps:       []string{`^/bar(.*)`},
+			elements: []Element{
+				Element{
+					Regex: `^/bar(.*)`,
+					Response: http.StatusForbidden,
+				},
+			},
+			// regexps:       []string{`^/bar(.*)`},
 			reqPath:       "/foo/bar",
 			expNextCall:   true,
 			expStatusCode: http.StatusOK,
@@ -93,7 +160,7 @@ func TestServeHTTP(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
 			cfg := &Config{
-				Regex: test.regexps,
+				Elements: test.elements,
 			}
 
 			nextCall := false

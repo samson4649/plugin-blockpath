@@ -4,5 +4,6 @@ type: middleware
 import: github.com/traefik/plugin-blockpath
 compatibility: TODO
 testData:
-  Regex:
-    - "^/foo(.*)"
+  elements:
+    - regex: ^/path
+      code: 403 

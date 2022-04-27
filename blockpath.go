@@ -8,9 +8,21 @@ import (
 	"regexp"
 )
 
+// Element for holding response code and regex 
+type Element struct {
+	Regex string `json:"regex,omitempty"`
+	Response int `json:"code,omitempty"`
+}
+
 // Config holds the plugin configuration.
 type Config struct {
-	Regex []string `json:"regex,omitempty"`
+	Elements []Element `json:"elements,omitempty"`
+}
+
+// container for compiled targets
+type CompiledElement struct {
+	Regexp *regexp.Regexp
+	Code   int 
 }
 
 // CreateConfig creates and initializes the plugin configuration.
@@ -21,35 +33,50 @@ func CreateConfig() *Config {
 type blockPath struct {
 	name    string
 	next    http.Handler
-	regexps []*regexp.Regexp
+	// regexps []*regexp.Regexp
+	el      []*CompiledElement
 }
 
 // New creates and returns a plugin instance.
 func New(_ context.Context, next http.Handler, config *Config, name string) (http.Handler, error) {
-	regexps := make([]*regexp.Regexp, len(config.Regex))
+	// elms := make([]*CompiledElement, len(config.Elements))
 
-	for i, regex := range config.Regex {
-		re, err := regexp.Compile(regex)
+	elms := []*CompiledElement{}
+
+	// for i, _ := range config.Elements {
+	for i := 0; i < len(config.Elements); i++ {
+		re, err := regexp.Compile(config.Elements[i].Regex)
 		if err != nil {
-			return nil, fmt.Errorf("error compiling regex %q: %w", regex, err)
+			return nil, fmt.Errorf("error compiling regex %q: %w", config.Elements[i].Regex, err)
 		}
 
-		regexps[i] = re
+		// set http response code
+		code := config.Elements[i].Response
+		if code == 0 {
+			code = 404
+		}
+
+		// regexps[i] = re
+		elms = append(elms, &CompiledElement{
+			Regexp: re, 
+			Code: code,
+		})
 	}
 
 	return &blockPath{
 		name:    name,
 		next:    next,
-		regexps: regexps,
+		el:      elms,
+		// regexps: regexps,
 	}, nil
 }
 
 func (b *blockPath) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	currentPath := req.URL.EscapedPath()
 
-	for _, re := range b.regexps {
-		if re.MatchString(currentPath) {
-			rw.WriteHeader(http.StatusForbidden)
+	for _, e := range b.el {
+		if e.Regexp.MatchString(currentPath) {
+			rw.WriteHeader(e.Code)
 			return
 		}
 	}
