@@ -53,7 +53,7 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 		// set http response code
 		code := config.Elements[i].Response
 		if code == 0 {
-			code = 404
+			code = 401
 		}
 
 		// regexps[i] = re
@@ -71,12 +71,26 @@ func New(_ context.Context, next http.Handler, config *Config, name string) (htt
 	}, nil
 }
 
+func lookupStatusMessage(code int) (ret string, err error) {
+	switch {
+	case code == 404:
+		ret = "404 page not found"
+	default:
+		err = fmt.Errorf("Not able to decode status code.")
+	}
+	return ret, err  
+}
+
 func (b *blockPath) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	currentPath := req.URL.EscapedPath()
 
 	for _, e := range b.el {
 		if e.Regexp.MatchString(currentPath) {
 			rw.WriteHeader(e.Code)
+			sc, err := lookupStatusMessage(e.Code)
+			if err != nil {
+				rw.Write( []byte(sc) )
+			}
 			return
 		}
 	}
